@@ -1,0 +1,8 @@
+info:
+  namespace: board_games
+  dictionary-lang: "es"
+dictionary:
+  display-category-board_games: "Juegos de mesa"
+  display-name-chess: "Ajedrez"
+  display-name-checkers: "Damas"
+  display-name-tic_tac_toe: "Tres en raya"

@@ -1,0 +1,168 @@
+info:
+  namespace: board_games
+recipes:
+  crafting_table:
+    tic_tac_toe:
+      permission: board_games.game.tic_tac_toe
+      enabled: true
+      pattern:
+      - XXX
+      - BWB
+      - OOO
+      ingredients:
+        B: BROWN_DYE
+        W: WHITE_DYE
+        O: OAK_SLAB
+      result:
+        item: board_games:tic_tac_toe
+        amount: 1
+    chess:
+      permission: board_games.game.chess
+      enabled: true
+      pattern:
+      - XXX
+      - BWB
+      - OOO
+      ingredients:
+        B: BLACK_DYE
+        W: WHITE_DYE
+        O: OAK_SLAB
+      result:
+        item: board_games:chess
+        amount: 1
+    checkers:
+      permission: board_games.game.checkers
+      enabled: true
+      pattern:
+      - XXX
+      - WBW
+      - OOO
+      ingredients:
+        B: BLACK_DYE
+        W: WHITE_DYE
+        O: OAK_SLAB
+      result:
+        item: board_games:checkers
+        amount: 1
+items:
+  tic_tac_toe:
+    display_name: display-name-tic_tac_toe
+    permission: board_games.game.tic_tac_toe
+    specific_properties:
+      leather_horse_armor:
+        color: 10248253
+    resource:
+      material: LEATHER_HORSE_ARMOR
+      generate: false
+      model_path: item/tic_tac_toe
+    behaviours:
+      furniture:
+        solid: false
+        entity: item_display
+        fixed_rotation: true
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        hitbox:
+          height: 1
+        sound:
+          place:
+            name: block.wood.place
+          break:
+            name: block.wood.break
+    events_settings:
+      cooldown:
+        indicator: HIDDEN
+        ticks: 1
+    events:
+      placed_furniture:
+        interact:
+          script:
+            name: tic_tac_toe
+        break:
+          script:
+            name: tic_tac_toe
+  chess:
+    display_name: display-name-chess
+    permission: board_games.game.chess
+    specific_properties:
+      leather_horse_armor:
+        color: 1184274
+    resource:
+      material: LEATHER_HORSE_ARMOR
+      generate: false
+      model_path: item/chess
+    behaviours:
+      furniture:
+        solid: false
+        entity: item_display
+        fixed_rotation: true
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        hitbox:
+          height: 1
+        sound:
+          place:
+            name: block.wood.place
+          break:
+            name: block.wood.break
+    events_settings:
+      cooldown:
+        indicator: HIDDEN
+        ticks: 1
+    events:
+      placed_furniture:
+        interact:
+          script:
+            name: chess
+        break:
+          script:
+            name: chess
+  checkers:
+    display_name: display-name-checkers
+    permission: board_games.game.checkers
+    specific_properties:
+      leather_horse_armor:
+        color: 1184274
+    resource:
+      material: LEATHER_HORSE_ARMOR
+      generate: false
+      model_path: item/chess
+    behaviours:
+      furniture:
+        solid: false
+        entity: item_display
+        fixed_rotation: true
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        hitbox:
+          height: 1
+        sound:
+          place:
+            name: block.wood.place
+          break:
+            name: block.wood.break
+    events_settings:
+      cooldown:
+        indicator: HIDDEN
+        ticks: 1
+    events:
+      placed_furniture:
+        interact:
+          script:
+            name: checkers
+        break:
+          script:
+            name: checkers
+scripts:
+  tic_tac_toe:
+    path: scripts/tic_tac_toe.java
+  chess:
+    path: scripts/chess.java
+  checkers:
+    path: scripts/checkers.java

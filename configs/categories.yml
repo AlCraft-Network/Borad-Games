@@ -1,0 +1,12 @@
+info:
+  namespace: board_games
+categories:
+  board_games:
+    enabled: true
+    icon: "board_games:tic_tac_toe"
+    name: display-category-board_games
+    permission: ia.menu.board_games
+    items:
+      - "board_games:tic_tac_toe"
+      - "board_games:checkers"
+      - "board_games:chess"

@@ -1,0 +1,225 @@
+info:
+  namespace: board_games
+font_images:
+  tic_tac_toe_x:
+    permission: board_games.tic_tac_toe.x
+    show_in_gui: false
+    path: "font/icon/tic_tac_toe/x"
+    scale_ratio: 9
+    y_position: 8
+  tic_tac_toe_o:
+    permission: board_games.tic_tac_toe.o
+    show_in_gui: false
+    path: "font/icon/tic_tac_toe/o"
+    scale_ratio: 9
+    y_position: 8
+  tic_tac_toe_x_win:
+    permission: board_games.tic_tac_toe.x_win
+    show_in_gui: false
+    path: "font/icon/tic_tac_toe/x_win"
+    scale_ratio: 9
+    y_position: 8
+  tic_tac_toe_o_win:
+    permission: board_games.tic_tac_toe.o_win
+    show_in_gui: false
+    path: "font/icon/tic_tac_toe/o_win"
+    scale_ratio: 9
+    y_position: 8
+  board_games_empty:
+    permission: board_games.empty
+    show_in_gui: false
+    path: "font/icon/empty"
+    scale_ratio: 9
+    y_position: 8
+  checkers_b:
+    permission: board_games.checkers.b
+    show_in_gui: false
+    path: "font/icon/checkers/b"
+    scale_ratio: 9
+    y_position: 8
+  checkers_w:
+    permission: board_games.checkers.w
+    show_in_gui: false
+    path: "font/icon/checkers/w"
+    scale_ratio: 9
+    y_position: 8
+  checkers_b_queen:
+    permission: board_games.checkers.b_queen
+    show_in_gui: false
+    path: "font/icon/checkers/b_queen"
+    scale_ratio: 9
+    y_position: 8
+  checkers_w_queen:
+    permission: board_games.checkers.w_queen
+    show_in_gui: false
+    path: "font/icon/checkers/w_queen"
+    scale_ratio: 9
+    y_position: 8
+  checkers_b_sel:
+    permission: board_games.checkers.b_sel
+    show_in_gui: false
+    path: "font/icon/checkers/b_sel"
+    scale_ratio: 9
+    y_position: 8
+  checkers_w_sel:
+    permission: board_games.checkers.w_sel
+    show_in_gui: false
+    path: "font/icon/checkers/w_sel"
+    scale_ratio: 9
+    y_position: 8
+  checkers_b_queen_sel:
+    permission: board_games.checkers.b_queen_sel
+    show_in_gui: false
+    path: "font/icon/checkers/b_queen_sel"
+    scale_ratio: 9
+    y_position: 8
+  checkers_w_queen_sel:
+    permission: board_games.checkers.w_queen_sel
+    show_in_gui: false
+    path: "font/icon/checkers/w_queen_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_pawn:
+    permission: board_games.chess.w_pawn
+    show_in_gui: false
+    path: "font/icon/chess/w_pawn"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_knight:
+    permission: board_games.chess.w_knight
+    show_in_gui: false
+    path: "font/icon/chess/w_knight"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_bishop:
+    permission: board_games.chess.w_bishop
+    show_in_gui: false
+    path: "font/icon/chess/w_bishop"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_rook:
+    permission: board_games.chess.w_rook
+    show_in_gui: false
+    path: "font/icon/chess/w_rook"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_queen:
+    permission: board_games.chess.w_queen
+    show_in_gui: false
+    path: "font/icon/chess/w_queen"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_king:
+    permission: board_games.chess.w_king
+    show_in_gui: false
+    path: "font/icon/chess/w_king"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_pawn:
+    permission: board_games.chess.b_pawn
+    show_in_gui: false
+    path: "font/icon/chess/b_pawn"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_knight:
+    permission: board_games.chess.b_knight
+    show_in_gui: false
+    path: "font/icon/chess/b_knight"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_bishop:
+    permission: board_games.chess.b_bishop
+    show_in_gui: false
+    path: "font/icon/chess/b_bishop"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_rook:
+    permission: board_games.chess.b_rook
+    show_in_gui: false
+    path: "font/icon/chess/b_rook"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_queen:
+    permission: board_games.chess.b_queen
+    show_in_gui: false
+    path: "font/icon/chess/b_queen"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_king:
+    permission: board_games.chess.b_king
+    show_in_gui: false
+    path: "font/icon/chess/b_king"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_pawn_sel:
+    permission: board_games.chess.w_pawn_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_pawn_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_knight_sel:
+    permission: board_games.chess.w_knight_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_knight_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_bishop_sel:
+    permission: board_games.chess.w_bishop_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_bishop_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_rook_sel:
+    permission: board_games.chess.w_rook_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_rook_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_queen_sel:
+    permission: board_games.chess.w_queen_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_queen_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_w_king_sel:
+    permission: board_games.chess.w_king_sel
+    show_in_gui: false
+    path: "font/icon/chess/w_king_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_pawn_sel:
+    permission: board_games.chess.b_pawn_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_pawn_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_knight_sel:
+    permission: board_games.chess.b_knight_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_knight_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_bishop_sel:
+    permission: board_games.chess.b_bishop_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_bishop_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_rook_sel:
+    permission: board_games.chess.b_rook_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_rook_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_queen_sel:
+    permission: board_games.chess.b_queen_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_queen_sel"
+    scale_ratio: 9
+    y_position: 8
+  chess_b_king_sel:
+    permission: board_games.chess.b_king_sel
+    show_in_gui: false
+    path: "font/icon/chess/b_king_sel"
+    scale_ratio: 9
+    y_position: 8

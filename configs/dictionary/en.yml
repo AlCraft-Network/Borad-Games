@@ -1,0 +1,8 @@
+info:
+  namespace: board_games
+  dictionary-lang: "en"
+dictionary:
+  display-category-board_games: "Table games"
+  display-name-chess: "Chess"
+  display-name-checkers: "Checkers"
+  display-name-tic_tac_toe: "Tic Tac Toe"
