@@ -1,0 +1,54 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        path: main-source
+
+    - name: Checkout worldguard branch
+      uses: actions/checkout@v4
+      with:
+        ref: worldguard
+        path: worldguard-source
+
+    - name: Prepare board_games_[tag].zip
+      run: |
+        mkdir -p zip-build/main/board_games
+        cp -r main-source/* zip-build/main/board_games/
+        cd zip-build/main
+        zip -r ../../board_games_${{ github.event.inputs.tag }}.zip board_games
+        cd ../..
+
+    - name: Prepare board_games-worldguard_[tag].zip
+      run: |
+        mkdir -p zip-build/worldguard/board_games
+        cp -r worldguard-source/* zip-build/worldguard/board_games/
+        cd zip-build/worldguard
+        zip -r ../../board_games-worldguard_${{ github.event.inputs.tag }}.zip board_games
+        cd ../..
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.inputs.tag }}
+        name: Release ${{ github.event.inputs.tag }}
+        files: |
+          board_games_${{ github.event.inputs.tag }}.zip
+          board_games-worldguard_${{ github.event.inputs.tag }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
