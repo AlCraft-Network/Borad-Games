@@ -36,9 +36,16 @@ import dev.lone.itemsadder.api.*;
 import dev.lone.itemsadder.api.scriptinginternal.ItemScript;
 import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.replaceFontImages;
 import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.applyPixelsOffsetToString;
-
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+
+import com.sk89q.worldguard.LocalPlayer;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
+import com.sk89q.worldguard.protection.regions.RegionQuery;
+import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldguard.session.SessionManager;
 
 public class tic_tac_toe extends ItemScript {
 
@@ -57,6 +64,18 @@ public class tic_tac_toe extends ItemScript {
     private final String WINNER_X = "X";
     private final String WINNER_O = "O";
 
+    private boolean canBuild(Player player, Block block) {
+        Location loc = block.getLocation();
+        LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
+        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+        SessionManager sessionManager = WorldGuard.getInstance().getPlatform().getSessionManager();
+        RegionQuery query = container.createQuery();
+        if (!sessionManager.hasBypass(localPlayer,  BukkitAdapter.adapt(loc.getWorld()))) {
+            return query.testBuild(BukkitAdapter.adapt(loc), localPlayer);
+        }
+        return true;
+    }
+
     @Override
     public void handleEvent(Plugin plugin, Event event, Player player, CustomStack item, ItemStack vanillaItem) {
         if (event instanceof PlayerInteractEvent e) {
@@ -68,6 +87,7 @@ public class tic_tac_toe extends ItemScript {
             Block blockLoc = furniture.getEntity().getLocation().clone().subtract(0, 0.1, 0).getBlock();
             Block block = e.getClickedBlock();
             if (block == null || !block.equals(blockLoc)) return;
+            if(!canBuild(player, blockLoc)) return;
 
             Location clickLoc = e.getInteractionPoint();
             if (clickLoc == null || e.getBlockFace() != BlockFace.UP) return;
