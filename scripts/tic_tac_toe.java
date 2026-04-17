@@ -1,46 +1,47 @@
 package scripts;
 
-import org.bukkit.event.Event;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.util.Transformation;
+import java.util.Arrays;
+
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-
-import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.ItemsUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.PlayerUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.WorldUtils.*;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
+import org.bukkit.GameMode;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.Event;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.util.Transformation;
 
 import dev.lone.itemsadder.api.*;
 import dev.lone.itemsadder.api.scriptinginternal.ItemScript;
-import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.replaceFontImages;
-import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.applyPixelsOffsetToString;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.PlayerUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.WorldUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.*;
+import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.*;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 public class tic_tac_toe extends ItemScript {
+    private class Settings {
+        public static final boolean ENABLE_RESTARTING = true;
+        public static final int RESET_DELAY_SECONDS = 5;
+        public static final String  RESET_MSG = "§7If you want to restart the game, use §fSHIFT + CLICK";
+        public static final String  RESTARTING_MSG = "§7Restarting in §f{s} s§7...";
+        public static final boolean ENABLE_PERSISTENCE = true;
+    }
 
     private final int BOARD_HEIGHT = 3;
     private final int BOARD_WIDTH = 3;
@@ -48,6 +49,8 @@ public class tic_tac_toe extends ItemScript {
     private final String BOARD_KEY = "ttt_board";
     private final String TURN_KEY = "ttt_turn";
     private final String WINNER_KEY = "ttt_winner";
+    private final String RESET_PENDING_KEY = "ttt_reset_pending";
+    private final String RESET_AVAILABLE_KEY = "ttt_reset_available";
     private final String NAMESPACE = "game";
 
     private final String DEFAULT_TURN = "0";
@@ -56,6 +59,8 @@ public class tic_tac_toe extends ItemScript {
 
     private final String WINNER_X = "X";
     private final String WINNER_O = "O";
+
+    private boolean hasRestored = false;
 
     @Override
     public void handleEvent(Plugin plugin, Event event, Player player, CustomStack item, ItemStack vanillaItem) {
@@ -76,23 +81,54 @@ public class tic_tac_toe extends ItemScript {
             int[] pos = getClickedPos(clickLoc, block, furniture);
 
             // Get or generate board
-            TextDisplay display = setUpBoard(block, furniture);
+            TextDisplay board = setUpBoard(block, furniture);
+
+            if (Settings.ENABLE_RESTARTING && handleReset(board, player)) return;
 
             // Update board
-            playMove(display, pos[0], pos[1]);
+            playMove(board, pos[0], pos[1]);
             
         // Break board logic
         } else {
+            try { // Cancel break event
+                if (event instanceof Cancellable cancellableEvent) cancellableEvent.setCancelled(true);
+            } catch (Exception ignored) {}
+
             CustomFurniture furniture = CustomFurniture.byAlreadySpawned(entityInFront(player));
             if (furniture == null) return;
 
             Block block = furniture.getEntity().getLocation().clone().subtract(0, 0.1, 0).getBlock();
+            Location loc = block.getLocation().add(0.5, 1, 0.5);
+            ItemStack boardItem = furniture.getItemStack();
             
-            for (Entity e : block.getWorld().getNearbyEntities(block.getLocation().add(0.5, 1, 0.5), 0.5, 0.5, 0.5)) {
-                if (e instanceof TextDisplay display) display.remove();
+            for (Entity e : block.getWorld().getNearbyEntities(loc, 0.5, 0.5, 0.5)) {
+                if (e instanceof TextDisplay display) {
+                    if (Settings.ENABLE_PERSISTENCE) saveBoardStateToItem(display, boardItem);
+                    display.remove();
+                }
             }
+
+            furniture.getEntity().remove();
+            playSound(loc, "minecraft:block.wood.break");
+            if (player.getGameMode() != GameMode.CREATIVE) block.getWorld().dropItemNaturally(loc, boardItem);
         }
     }
+
+    // ========== PERSISTING DATA MECHANIC ===========
+    private void saveBoardStateToItem(TextDisplay display, ItemStack item) {
+        if (item == null) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        var container = meta.getPersistentDataContainer();
+        setDataString(container, NAMESPACE, BOARD_KEY, getDataString(display, NAMESPACE, BOARD_KEY, DEFAULT_BOARD));
+        setDataString(container, NAMESPACE, TURN_KEY, getDataString(display, NAMESPACE, TURN_KEY, DEFAULT_TURN));
+        setDataString(container, NAMESPACE, WINNER_KEY, getDataString(display, NAMESPACE, WINNER_KEY, DEFAULT_WINNER));
+
+        item.setItemMeta(meta);
+    }
+    // =============================================
 
     private int[] getClickedPos(Location clickLoc, Block block, CustomFurniture furniture) {
         double locX = clickLoc.getX() - block.getX();
@@ -144,18 +180,84 @@ public class tic_tac_toe extends ItemScript {
         Vector3f translation = new Vector3f(0.0f, 0.0f, -0.4f);
         display.setTransformation(new Transformation(translation, rotation, scale, new Quaternionf()));
         
+        // Check if item has saved data
+        ItemStack boardItem = furniture.getItemStack();
+        ItemMeta meta = boardItem.getItemMeta();
+        if (meta == null) meta = Bukkit.getItemFactory().getItemMeta(boardItem.getType());
+
+        var container = meta.getPersistentDataContainer();
+        String boardData  = getDataString(container, NAMESPACE, BOARD_KEY, DEFAULT_BOARD);
+        String turnData   = getDataString(container, NAMESPACE, TURN_KEY, DEFAULT_TURN);
+        String winnerData = getDataString(container, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
+
+        this.hasRestored = !boardData.equals(DEFAULT_BOARD);
 
         // Initialize empty board
-        TicTacToeGame initialGame = new TicTacToeGame(BOARD_HEIGHT, BOARD_WIDTH, DEFAULT_BOARD, 0);
-        display.text(Component.text(formatBoard(initialGame.getBoardAsSymbolsArray()), NamedTextColor.BLACK));
-
-        // Save initial board data
-        setDataString(display, NAMESPACE, BOARD_KEY, DEFAULT_BOARD);
-        setDataString(display, NAMESPACE, TURN_KEY, DEFAULT_TURN);
-        setDataString(display, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
-
+        setBoard(display, boardData, turnData, winnerData);
         return display;
     }
+
+    private void setBoard(TextDisplay display, String boardData, String turnData, String winnerData) {
+        TicTacToeGame game = new TicTacToeGame(BOARD_HEIGHT, BOARD_WIDTH, boardData, Integer.parseInt(turnData));
+
+        if (!winnerData.isEmpty() && !winnerData.equals("T")) game.checkWinner();
+        display.text(Component.text(formatBoard(game.getBoardAsSymbolsArray()), NamedTextColor.BLACK));
+
+        setDataString(display, NAMESPACE, BOARD_KEY, boardData);
+        setDataString(display, NAMESPACE, TURN_KEY, turnData);
+        setDataString(display, NAMESPACE, WINNER_KEY, winnerData);
+    }
+
+    // ============== RESET MECHANIC ==============
+    private boolean handleReset(TextDisplay board, Player player) {
+        String winner = getDataString(board, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
+        boolean resetAvailable = getDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        if (this.hasRestored || (!winner.isEmpty() && !resetAvailable)) {
+            setDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, true);
+            msg(player, Settings.RESET_MSG);
+            return true;
+        }
+
+        if (getDataBool(board, NAMESPACE, RESET_PENDING_KEY, false)) return true;
+
+        if (!resetAvailable) return false;
+        if (player.isSneaking()) {
+            resetBoard(board, player);
+            return true;
+        } 
+        
+        if (winner.isEmpty()) setDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        return false;
+    }
+
+    private void resetBoard(TextDisplay display, Player player) {
+        if (getDataBool(display, NAMESPACE, RESET_PENDING_KEY, false)) return;
+
+        setDataBool(display, NAMESPACE, RESET_PENDING_KEY, true);
+        setDataBool(display, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        for (int i = Settings.RESET_DELAY_SECONDS; i >= 0; i--) {
+            final int secondsLeft = i;
+            _runDelayed((Settings.RESET_DELAY_SECONDS - i) * 20L, () -> {
+                if (!display.isValid()) return;
+
+                if (secondsLeft > 0) {
+                    playSound(display.getLocation(), "minecraft:block.note_block.hat");
+                    playParticle(display.getLocation(), "minecraft:end_rod", 1, 0.3, 0.3, 0.3, 0.02);
+                    msg(player, Settings.RESTARTING_MSG.replace("{s}", String.valueOf(secondsLeft)));
+                } else {
+                    setBoard(display, DEFAULT_BOARD, DEFAULT_TURN, DEFAULT_WINNER);
+                    setDataBool(display, NAMESPACE, RESET_PENDING_KEY, false);
+
+                    playSound(display.getLocation(), "minecraft:block.amethyst_block.chime");
+                    playParticle(display.getLocation(), "minecraft:firework", 8, 0.4, 0.4, 0.4, 0.05);
+                }
+            });
+        }
+    }
+    // ==============================================
 
     private void playMove(TextDisplay display, int row, int col) {
         // 1. LOAD saved data
