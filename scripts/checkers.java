@@ -1,16 +1,15 @@
 package scripts;
 
-import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.replaceFontImages;
-import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.ItemsUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.PlayerUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.*;
-import static dev.lone.itemsadder.api.scriptinginternal.WorldUtils.*;
-
 import java.util.Arrays;
 
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
@@ -18,17 +17,32 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import dev.lone.itemsadder.api.CustomFurniture;
 import dev.lone.itemsadder.api.CustomStack;
 import dev.lone.itemsadder.api.scriptinginternal.ItemScript;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.getDataBool;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.getDataString;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.setDataBool;
+import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.setDataString;
+import static dev.lone.itemsadder.api.scriptinginternal.PlayerUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.WorldUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.getDataBool;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.getDataString;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.setDataBool;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.setDataString;
+import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.*;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -41,6 +55,45 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.session.SessionManager;
 
 public class checkers extends ItemScript {
+    class Utils {
+        public static void decrementDurability(ItemStack item, Player player) {
+            var meta = (Damageable) item.getItemMeta();
+            if (meta.getDamage() + 1 >= item.getType().getMaxDurability()){
+                playSound(player.getLocation(), "minecraft:entity.item.break");
+                player.getWorld().spawnParticle(Particle.ITEM, player.getLocation().add(0, 1.0, 0), 15, 0.2, 0.2, 0.2, 0.1, item);
+                item.setAmount(0);
+            } else {
+                meta.setDamage(meta.getDamage() + 1);
+                item.setItemMeta(meta);
+            }   
+        }
+
+        public static boolean isAxe(Material material) {
+            return material.name().endsWith("_AXE");
+        }
+
+        public static boolean canBuild(Player player, Block block) {
+            Location loc = block.getLocation();
+            LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            SessionManager sessionManager = WorldGuard.getInstance().getPlatform().getSessionManager();
+            RegionQuery query = container.createQuery();
+            if (!sessionManager.hasBypass(localPlayer,  BukkitAdapter.adapt(loc.getWorld()))) {
+                return query.testBuild(BukkitAdapter.adapt(loc), localPlayer);
+            }
+            return true;
+        }
+    }
+
+    private class Settings {
+        public static final boolean BUILD_PERMISSIONS_TO_PLAY = true;
+        public static final boolean ENABLE_WAXABLE = true;
+        public static final boolean ENABLE_RESTARTING = true;
+        public static final int RESET_DELAY_SECONDS = 5;
+        public static final String  RESET_MSG = "§7If you want to restart the game, use §fSHIFT + CLICK";
+        public static final String  RESTARTING_MSG = "§7Restarting in §f{s} s§7...";
+        public static final boolean ENABLE_PERSISTENCE = true;
+    }
 
     private final int BOARD_HEIGHT = 8;
     private final int BOARD_WIDTH = 8;
@@ -49,6 +102,9 @@ public class checkers extends ItemScript {
     private final String TURN_KEY = "checkers_turn";
     private final String WINNER_KEY = "checkers_winner";
     private final String STREAK_KEY = "checkers_streak";
+    private final String WAXED_KEY  = "checkers_waxed";
+    private final String RESET_PENDING_KEY = "checkers_reset_pending";
+    private final String RESET_AVAILABLE_KEY = "checkers_reset_available";
     private final String NAMESPACE = "game";
 
     private final String DEFAULT_TURN = "0";
@@ -62,17 +118,7 @@ public class checkers extends ItemScript {
                                          " W W W W" + 
                                          "W W W W ";
 
-    private boolean canBuild(Player player, Block block) {
-        Location loc = block.getLocation();
-        LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
-        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        SessionManager sessionManager = WorldGuard.getInstance().getPlatform().getSessionManager();
-        RegionQuery query = container.createQuery();
-        if (!sessionManager.hasBypass(localPlayer,  BukkitAdapter.adapt(loc.getWorld()))) {
-            return query.testBuild(BukkitAdapter.adapt(loc), localPlayer);
-        }
-        return true;
-    }
+    private boolean hasRestored = false;
 
     @Override
     public void handleEvent(Plugin plugin, Event event, Player player, CustomStack item, ItemStack vanillaItem) {
@@ -85,7 +131,7 @@ public class checkers extends ItemScript {
             Block blockLoc = furniture.getEntity().getLocation().clone().subtract(0, 0.1, 0).getBlock();
             Block block = e.getClickedBlock();
             if (block == null || !block.equals(blockLoc)) return;
-            if(!canBuild(player, blockLoc)) return;
+            if(Settings.BUILD_PERMISSIONS_TO_PLAY && !Utils.canBuild(player, blockLoc)) return;
 
             Location clickLoc = e.getInteractionPoint();
             if (clickLoc == null || e.getBlockFace() != BlockFace.UP) return;
@@ -94,23 +140,94 @@ public class checkers extends ItemScript {
             int[] pos = getClickedPos(clickLoc, block, furniture);
 
             // Get or generate board
-            TextDisplay display = setUpBoard(block, furniture);
+            TextDisplay board = setUpBoard(block, furniture);
+
+            if (Settings.ENABLE_WAXABLE && handleWax(board, player)) return;
+            if (Settings.ENABLE_RESTARTING && handleReset(board, player)) return;
 
             // Update board
-            playMove(display, pos[0], pos[1]);
+            playMove(board, pos[0], pos[1]);
             
         // Break board logic
         } else {
+            try { // Cancel break event
+                if (event instanceof Cancellable cancellableEvent) cancellableEvent.setCancelled(true);
+            } catch (Exception ignored) {}
+
             CustomFurniture furniture = CustomFurniture.byAlreadySpawned(entityInFront(player));
             if (furniture == null) return;
 
             Block block = furniture.getEntity().getLocation().clone().subtract(0, 0.1, 0).getBlock();
+            Location loc = block.getLocation().add(0.5, 1, 0.5);
+            ItemStack boardItem = furniture.getItemStack();
             
-            for (Entity e : block.getWorld().getNearbyEntities(block.getLocation().add(0.5, 1, 0.5), 0.5, 0.5, 0.5)) {
-                if (e instanceof TextDisplay display) display.remove();
+            for (Entity e : block.getWorld().getNearbyEntities(loc, 0.5, 0.5, 0.5)) {
+                if (e instanceof TextDisplay display) {
+                    if (Settings.ENABLE_PERSISTENCE) saveBoardStateToItem(display, boardItem);
+                    display.remove();
+                }
             }
+
+            furniture.getEntity().remove();
+            playSound(loc, "minecraft:block.wood.break");
+            if (player.getGameMode() != GameMode.CREATIVE) block.getWorld().dropItemNaturally(loc, boardItem);
         }
     }
+
+    // ========== PERSISTING DATA ===========
+    private void saveBoardStateToItem(TextDisplay display, ItemStack item) {
+        if (item == null) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        var container = meta.getPersistentDataContainer();
+        setDataString(container, NAMESPACE, BOARD_KEY, getDataString(display, NAMESPACE, BOARD_KEY, DEFAULT_BOARD));
+        setDataString(container, NAMESPACE, TURN_KEY, getDataString(display, NAMESPACE, TURN_KEY, DEFAULT_TURN));
+        setDataString(container, NAMESPACE, WINNER_KEY, getDataString(display, NAMESPACE, WINNER_KEY, DEFAULT_WINNER));
+        setDataString(container, NAMESPACE, STREAK_KEY, getDataString(display, NAMESPACE, STREAK_KEY, DEFAULT_STREAK));
+        setDataBool(container, NAMESPACE, WAXED_KEY, getDataBool(display, NAMESPACE, WAXED_KEY, false));
+
+        item.setItemMeta(meta);
+    }
+    // =============================================
+
+    // ============== WAXING ==============
+    private boolean handleWax(TextDisplay display, Player player) {
+        boolean isWaxed = getDataBool(display, NAMESPACE, WAXED_KEY, false);
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        Material material = handItem.getType();
+
+        if(!Utils.canBuild(player, display.getLocation().getBlock())) return false;
+        if (!isWaxed && material != Material.HONEYCOMB) return false;
+
+        if (!isWaxed) {
+            applyWax(display, player, handItem);
+        } else if (Utils.isAxe(material)) {
+            removeWax(display, player, handItem);
+        } else {
+            playSound(display.getLocation(), "minecraft:block.copper.hit");
+        }
+
+        return true;
+    }
+
+    private void removeWax(TextDisplay display, Player player, ItemStack item) {
+        setDataBool(display, NAMESPACE, WAXED_KEY, false);
+
+        playSound(display.getLocation(), "minecraft:item.axe.scrape");
+        playParticle(display.getLocation(), "minecraft:wax_off", 5, 0.3, 0.3, 0.3, 0.05);
+        if (player.getGameMode() != GameMode.CREATIVE) Utils.decrementDurability(item, player);
+    }
+
+    private void applyWax(TextDisplay display, Player player, ItemStack item) {
+        setDataBool(display, NAMESPACE, WAXED_KEY, true);
+
+        playSound(display.getLocation(), "minecraft:item.honeycomb.wax_on");
+        playParticle(display.getLocation(), "minecraft:wax_on", 5, 0.3, 0.3, 0.3, 0.05);
+        if (player.getGameMode() != GameMode.CREATIVE) item.setAmount(item.getAmount() - 1);
+    }
+    // ==============================================
 
     private int[] getClickedPos(Location clickLoc, Block block, CustomFurniture furniture) {
         double locX = clickLoc.getX() - block.getX();
@@ -162,18 +279,89 @@ public class checkers extends ItemScript {
         Vector3f translation = new Vector3f(0.006f, 0.0f, -0.63f);
         display.setTransformation(new Transformation(translation, rotation, scale, new Quaternionf()));
 
-        // Initialize board
-        CheckersGame initialGame = new CheckersGame(BOARD_HEIGHT, BOARD_WIDTH, DEFAULT_BOARD, 0, false);
-        display.text(Component.text(formatBoard(initialGame.getBoardAsSymbolsArray()), NamedTextColor.BLACK));
+        // Check if item has saved data
+        ItemStack boardItem = furniture.getItemStack();
+        ItemMeta meta = boardItem.getItemMeta();
+        if (meta == null) meta = Bukkit.getItemFactory().getItemMeta(boardItem.getType());
 
-        // Save initial board data
-        setDataString(display, NAMESPACE, BOARD_KEY, DEFAULT_BOARD);
-        setDataString(display, NAMESPACE, TURN_KEY, DEFAULT_TURN);
-        setDataString(display, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
-        setDataString(display, NAMESPACE, STREAK_KEY, DEFAULT_STREAK);
+        var container = meta.getPersistentDataContainer();
+        String boardData  = getDataString(container, NAMESPACE, BOARD_KEY, DEFAULT_BOARD);
+        String turnData   = getDataString(container, NAMESPACE, TURN_KEY, DEFAULT_TURN);
+        String winnerData = getDataString(container, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
+        String streakData = getDataString(container, NAMESPACE, STREAK_KEY, DEFAULT_STREAK);
+        boolean waxedData = getDataBool(container, NAMESPACE, WAXED_KEY, false);
+
+        this.hasRestored = !boardData.equals(DEFAULT_BOARD);
+
+        // Initialize empty board
+        setBoard(display, boardData, turnData, winnerData, streakData, waxedData);
 
         return display;
     }
+
+    private void setBoard(TextDisplay display, String boardData, String turnData, String winnerData, String streakData, boolean waxedData) {
+        CheckersGame game = new CheckersGame(BOARD_HEIGHT, BOARD_WIDTH, boardData, Integer.parseInt(turnData), false);
+
+        display.text(Component.text(formatBoard(game.getBoardAsSymbolsArray()), NamedTextColor.BLACK));
+
+        setDataString(display, NAMESPACE, BOARD_KEY, boardData);
+        setDataString(display, NAMESPACE, TURN_KEY, turnData);
+        setDataString(display, NAMESPACE, WINNER_KEY, winnerData);
+        setDataString(display, NAMESPACE, STREAK_KEY, streakData);
+        setDataBool(display, NAMESPACE, WAXED_KEY, waxedData);
+    }
+
+    // ============== RESET ==============
+    private boolean handleReset(TextDisplay board, Player player) {
+        String winner = getDataString(board, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
+        boolean resetAvailable = getDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        if (this.hasRestored || (!winner.isEmpty() && !resetAvailable)) {
+            setDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, true);
+            msg(player, Settings.RESET_MSG);
+            return true;
+        }
+
+        if (getDataBool(board, NAMESPACE, RESET_PENDING_KEY, false)) return true;
+
+        if (!resetAvailable) return false;
+        if (player.isSneaking()) {
+            resetBoard(board, player);
+            return true;
+        } 
+        
+        if (winner.isEmpty()) setDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        return false;
+    }
+
+    private void resetBoard(TextDisplay display, Player player) {
+        if (getDataBool(display, NAMESPACE, RESET_PENDING_KEY, false)) return;
+
+        setDataBool(display, NAMESPACE, RESET_PENDING_KEY, true);
+        setDataBool(display, NAMESPACE, RESET_AVAILABLE_KEY, false);
+
+        for (int i = Settings.RESET_DELAY_SECONDS; i >= 0; i--) {
+            final int secondsLeft = i;
+            _runDelayed((Settings.RESET_DELAY_SECONDS - i) * 20L, () -> {
+                if (!display.isValid()) return;
+
+                if (secondsLeft > 0) {
+                    playSound(display.getLocation(), "minecraft:block.note_block.hat");
+                    playParticle(display.getLocation(), "minecraft:end_rod", 1, 0.3, 0.3, 0.3, 0.02);
+                    msg(player, Settings.RESTARTING_MSG.replace("{s}", String.valueOf(secondsLeft)));
+                } else {
+                    boolean waxedData = getDataBool(display, NAMESPACE, WAXED_KEY, false);
+                    setBoard(display, DEFAULT_BOARD, DEFAULT_TURN, DEFAULT_WINNER, DEFAULT_STREAK, waxedData);
+                    setDataBool(display, NAMESPACE, RESET_PENDING_KEY, false);
+
+                    playSound(display.getLocation(), "minecraft:block.amethyst_block.chime");
+                    playParticle(display.getLocation(), "minecraft:firework", 8, 0.4, 0.4, 0.4, 0.05);
+                }
+            });
+        }
+    }
+    // ==============================================
 
     private void playMove(TextDisplay display, int row, int col) {
         // 1. LOAD saved data
@@ -491,12 +679,12 @@ public class checkers extends ItemScript {
                     enemyY = checkY;
                     foundEnemy = true;
                 } else {
-                    return false; // Segunda pieza
+                    return false; // Second piece
                 }
             }
 
             if (foundEnemy) return (toX == enemyX + stepX) && (toY == enemyY + stepY);
-            return true; // Camino despejado sin capturas
+            return true; // Clear path without captures
         }
         
     }
@@ -532,19 +720,8 @@ public class checkers extends ItemScript {
             return selected ? SEL_SYMBOLS[index] : SYMBOLS[index];
         }
 
-        public int getPlayerFromChar(char c) {
-            for (int i = 0; i < CHARACTERS.length; i++) {
-                if (CHARACTERS[i].equalsIgnoreCase(String.valueOf(c))) return i;
-            }
-            return -1;
-        }
-
         public void setSelected(boolean selected) {
             this.selected = selected;
-        }
-
-        public boolean isSelected() {
-            return selected;
         }
 
         public int getPlayer() {
