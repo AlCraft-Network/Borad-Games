@@ -8,6 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
@@ -19,6 +21,7 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Transformation;
@@ -34,7 +37,9 @@ import static dev.lone.itemsadder.api.scriptinginternal.EntityUtils.setDataStrin
 import static dev.lone.itemsadder.api.scriptinginternal.PlayerUtils.*;
 import static dev.lone.itemsadder.api.scriptinginternal.WorldUtils.*;
 import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.*;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.getDataBool;
 import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.getDataString;
+import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.setDataBool;
 import static dev.lone.itemsadder.api.scriptinginternal.ScriptingUtils.setDataString;
 import static dev.lone.itemsadder.api.FontImages.FontImageWrapper.*;
 
@@ -42,7 +47,26 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 public class checkers extends ItemScript {
+    class Utils {
+        public static void decrementDurability(ItemStack item, Player player) {
+            var meta = (Damageable) item.getItemMeta();
+            if (meta.getDamage() + 1 >= item.getType().getMaxDurability()){
+                playSound(player.getLocation(), "minecraft:entity.item.break");
+                player.getWorld().spawnParticle(Particle.ITEM, player.getLocation().add(0, 1.0, 0), 15, 0.2, 0.2, 0.2, 0.1, item);
+                item.setAmount(0);
+            } else {
+                meta.setDamage(meta.getDamage() + 1);
+                item.setItemMeta(meta);
+            }   
+        }
+
+        public static boolean isAxe(Material material) {
+            return material.name().endsWith("_AXE");
+        }
+    }
+
     private class Settings {
+        public static final boolean ENABLE_WAXABLE = true;
         public static final boolean ENABLE_RESTARTING = true;
         public static final int RESET_DELAY_SECONDS = 5;
         public static final String  RESET_MSG = "§7If you want to restart the game, use §fSHIFT + CLICK";
@@ -57,8 +81,9 @@ public class checkers extends ItemScript {
     private final String TURN_KEY = "checkers_turn";
     private final String WINNER_KEY = "checkers_winner";
     private final String STREAK_KEY = "checkers_streak";
-    private final String RESET_PENDING_KEY = "ttt_reset_pending";
-    private final String RESET_AVAILABLE_KEY = "ttt_reset_available";
+    private final String WAXED_KEY  = "checkers_waxed";
+    private final String RESET_PENDING_KEY = "checkers_reset_pending";
+    private final String RESET_AVAILABLE_KEY = "checkers_reset_available";
     private final String NAMESPACE = "game";
 
     private final String DEFAULT_TURN = "0";
@@ -95,6 +120,7 @@ public class checkers extends ItemScript {
             // Get or generate board
             TextDisplay board = setUpBoard(block, furniture);
 
+            if (Settings.ENABLE_WAXABLE && handleWax(board, player)) return;
             if (Settings.ENABLE_RESTARTING && handleReset(board, player)) return;
 
             // Update board
@@ -126,7 +152,7 @@ public class checkers extends ItemScript {
         }
     }
 
-    // ========== PERSISTING DATA MECHANIC ===========
+    // ========== PERSISTING DATA ===========
     private void saveBoardStateToItem(TextDisplay display, ItemStack item) {
         if (item == null) return;
 
@@ -138,10 +164,47 @@ public class checkers extends ItemScript {
         setDataString(container, NAMESPACE, TURN_KEY, getDataString(display, NAMESPACE, TURN_KEY, DEFAULT_TURN));
         setDataString(container, NAMESPACE, WINNER_KEY, getDataString(display, NAMESPACE, WINNER_KEY, DEFAULT_WINNER));
         setDataString(container, NAMESPACE, STREAK_KEY, getDataString(display, NAMESPACE, STREAK_KEY, DEFAULT_STREAK));
+        setDataBool(container, NAMESPACE, WAXED_KEY, getDataBool(display, NAMESPACE, WAXED_KEY, false));
 
         item.setItemMeta(meta);
     }
     // =============================================
+
+    // ============== WAXING ==============
+    private boolean handleWax(TextDisplay display, Player player) {
+        boolean isWaxed = getDataBool(display, NAMESPACE, WAXED_KEY, false);
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        Material material = handItem.getType();
+
+        if (!isWaxed && material != Material.HONEYCOMB) return false;
+
+        if (!isWaxed) {
+            applyWax(display, player, handItem);
+        } else if (Utils.isAxe(material)) {
+            removeWax(display, player, handItem);
+        } else {
+            playSound(display.getLocation(), "minecraft:block.copper.hit");
+        }
+
+        return true;
+    }
+
+    private void removeWax(TextDisplay display, Player player, ItemStack item) {
+        setDataBool(display, NAMESPACE, WAXED_KEY, false);
+
+        playSound(display.getLocation(), "minecraft:item.axe.scrape");
+        playParticle(display.getLocation(), "minecraft:wax_off", 5, 0.3, 0.3, 0.3, 0.05);
+        if (player.getGameMode() != GameMode.CREATIVE) Utils.decrementDurability(item, player);
+    }
+
+    private void applyWax(TextDisplay display, Player player, ItemStack item) {
+        setDataBool(display, NAMESPACE, WAXED_KEY, true);
+
+        playSound(display.getLocation(), "minecraft:item.honeycomb.wax_on");
+        playParticle(display.getLocation(), "minecraft:wax_on", 5, 0.3, 0.3, 0.3, 0.05);
+        if (player.getGameMode() != GameMode.CREATIVE) item.setAmount(item.getAmount() - 1);
+    }
+    // ==============================================
 
     private int[] getClickedPos(Location clickLoc, Block block, CustomFurniture furniture) {
         double locX = clickLoc.getX() - block.getX();
@@ -203,16 +266,17 @@ public class checkers extends ItemScript {
         String turnData   = getDataString(container, NAMESPACE, TURN_KEY, DEFAULT_TURN);
         String winnerData = getDataString(container, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
         String streakData = getDataString(container, NAMESPACE, STREAK_KEY, DEFAULT_STREAK);
+        boolean waxedData = getDataBool(container, NAMESPACE, WAXED_KEY, false);
 
         this.hasRestored = !boardData.equals(DEFAULT_BOARD);
 
         // Initialize empty board
-        setBoard(display, boardData, turnData, winnerData, streakData);
+        setBoard(display, boardData, turnData, winnerData, streakData, waxedData);
 
         return display;
     }
 
-    private void setBoard(TextDisplay display, String boardData, String turnData, String winnerData, String streakData) {
+    private void setBoard(TextDisplay display, String boardData, String turnData, String winnerData, String streakData, boolean waxedData) {
         CheckersGame game = new CheckersGame(BOARD_HEIGHT, BOARD_WIDTH, boardData, Integer.parseInt(turnData), false);
 
         display.text(Component.text(formatBoard(game.getBoardAsSymbolsArray()), NamedTextColor.BLACK));
@@ -221,9 +285,10 @@ public class checkers extends ItemScript {
         setDataString(display, NAMESPACE, TURN_KEY, turnData);
         setDataString(display, NAMESPACE, WINNER_KEY, winnerData);
         setDataString(display, NAMESPACE, STREAK_KEY, streakData);
+        setDataBool(display, NAMESPACE, WAXED_KEY, waxedData);
     }
 
-    // ============== RESET MECHANIC ==============
+    // ============== RESET ==============
     private boolean handleReset(TextDisplay board, Player player) {
         String winner = getDataString(board, NAMESPACE, WINNER_KEY, DEFAULT_WINNER);
         boolean resetAvailable = getDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, false);
@@ -263,7 +328,8 @@ public class checkers extends ItemScript {
                     playParticle(display.getLocation(), "minecraft:end_rod", 1, 0.3, 0.3, 0.3, 0.02);
                     msg(player, Settings.RESTARTING_MSG.replace("{s}", String.valueOf(secondsLeft)));
                 } else {
-                    setBoard(display, DEFAULT_BOARD, DEFAULT_TURN, DEFAULT_WINNER, DEFAULT_STREAK);
+                    boolean waxedData = getDataBool(display, NAMESPACE, WAXED_KEY, false);
+                    setBoard(display, DEFAULT_BOARD, DEFAULT_TURN, DEFAULT_WINNER, DEFAULT_STREAK, waxedData);
                     setDataBool(display, NAMESPACE, RESET_PENDING_KEY, false);
 
                     playSound(display.getLocation(), "minecraft:block.amethyst_block.chime");
