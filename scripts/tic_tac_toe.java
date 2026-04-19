@@ -60,8 +60,8 @@ public class tic_tac_toe extends ItemScript {
         public static final boolean ENABLE_WAXABLE = true;
         public static final boolean ENABLE_RESTARTING = true;
         public static final int RESET_DELAY_SECONDS = 5;
-        public static final String  RESET_MSG = "§7If you want to restat the game use §fSHIFT+CLICk";
-        public static final String  RESTARTING_MSG = "§7Restarting in §f{s}s§7...";
+        public static final String  RESET_MSG = "<gray>If you want to restart the game, use <white>SHIFT + CLICK<white></gray>";
+        public static final String  RESTARTING_MSG = "<gray>Restarting in <white>{s}</white> s...</gray>";
         public static final boolean ENABLE_PERSISTENCE = true;
     }
 
@@ -278,7 +278,7 @@ public class tic_tac_toe extends ItemScript {
 
         if (this.hasRestored || (!winner.isEmpty() && !resetAvailable)) {
             setDataBool(board, NAMESPACE, RESET_AVAILABLE_KEY, true);
-            msg(player, Settings.RESET_MSG);
+            msg(player, Settings.RESET_MSG, true);
             return true;
         }
 
@@ -309,7 +309,7 @@ public class tic_tac_toe extends ItemScript {
                 if (secondsLeft > 0) {
                     playSound(display.getLocation(), "minecraft:block.note_block.hat");
                     playParticle(display.getLocation(), "minecraft:end_rod", 1, 0.3, 0.3, 0.3, 0.02);
-                    msg(player, Settings.RESTARTING_MSG.replace("{s}", String.valueOf(secondsLeft)));
+                    msg(player, Settings.RESTARTING_MSG.replace("{s}", String.valueOf(secondsLeft)), true);
                 } else {
                     boolean waxedData = getDataBool(display, NAMESPACE, WAXED_KEY, false);
                     setBoard(display, DEFAULT_BOARD, DEFAULT_TURN, DEFAULT_WINNER, waxedData);
